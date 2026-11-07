@@ -811,6 +811,17 @@ function findMatches(q){
     if(p.k===qn) return 0; if(ws[ws.length-1]===qn) return 1; if(ws.includes(qn)) return 2; return 3; };
   return res.sort((x,y)=>rank(x)-rank(y)||x.i-y.i);
 }
+function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m; let p=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){ const c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c; } return p[n]; }
+function fuzzyMatches(q){
+  const qn=norm(q); if(qn.length<2) return [];
+  const qw=qn.split(' ');
+  return PROFILES.map(p=>{ const ws=p.k.split(' ');
+    const cands=[p.k, ws[ws.length-1], ws.slice(-2).join(' ')]; if(qw.length===1) ws.forEach(w=>cands.push(w));
+    let best=99; cands.forEach(c=>{ best=Math.min(best,lev(qn,c)); });
+    return {p,best}; })
+    .filter(o=>o.best<=(qn.length<=4?1:2)).sort((x,y)=>x.best-y.best).map(o=>o.p);
+}
 const rnext=$('#rnext'), rname=$('#rname'), rsug=$('#rsug'), rmsg=$('#rmsg'), rfind=$('#rfind'), rback=$('#rback');
 function chips(list){
   rsug.innerHTML='';
@@ -825,19 +836,15 @@ function resetFind(){
   setTimeout(()=>{ if(document.getElementById('sc-roster').classList.contains('on') && !('ontouchstart' in window)) rname.focus({preventScroll:true}); },700);
 }
 function submitName(){
-  const m=findMatches(rname.value);
   if(!rname.value.trim()){ setMsg('Bạn chưa nhập tên nè 🙂',true); return; }
+  let m=findMatches(rname.value);
+  if(!m.length) m=fuzzyMatches(rname.value);
   if(!m.length){ rsug.innerHTML=''; setMsg('Chưa thấy hồ sơ này. Thử nhập lại tên của bạn nhé!',true); return; }
-  const exact=m.filter(p=>p.k===norm(rname.value));
-  if(m.length===1) return pickProfile(m[0]);
-  if(exact.length===1) return pickProfile(exact[0]);
-  setMsg('Có nhiều hồ sơ trùng, chọn đúng tên của bạn nhé:'); chips(m);
+  rname.blur();
+  setMsg(m.length===1?'Có phải bạn đây không? Bấm vào tên để xem:':'Có phải bạn là một trong những tên này? Bấm vào tên của bạn:');
+  chips(m);
 }
-rname.addEventListener('input',()=>{
-  const v=rname.value.trim(); setMsg('');
-  if(!v){ rsug.innerHTML=''; return; }
-  chips(findMatches(v));
-});
+rname.addEventListener('input',()=>{ setMsg(''); rsug.innerHTML=''; });   /* gõ tới đâu im tới đó, chỉ hiện tên khi bấm Xem/Enter */
 rname.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); rname.blur(); submitName(); } });
 $('#rgo').addEventListener('click',submitName);
 rback.addEventListener('click',()=>{ resetFind(); });
